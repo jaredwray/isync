@@ -21,7 +21,7 @@ public struct HTTPSyncAPI: SyncAPI {
     public init(
         baseURL: URL,
         token: String?,
-        userAgent: String = "isync",
+        userAgent: String = "isync/\(ISyncVersion.current)",
         transport: any HTTPTransport = URLSessionTransport(),
         retry: RetryPolicy = RetryPolicy()
     ) throws {

@@ -21,7 +21,9 @@ swift build --build-tests --disable-automatic-resolution -Xswiftc -warnings-as-e
 swift test --skip-build
 ```
 
-- `Sources/ISyncCore` must not import an Apple-only framework. Its tests run on Linux too.
+- `Sources/ISyncCore` must build and pass its tests on Linux. Put each Apple-only import, such as
+  `os` or `SQLite3`, in an `#if canImport(...)` block, and give the Linux path in the `#else` block.
+  Put code that needs an Apple-only framework with no Linux path in `Sources/ISyncMac`.
 - Use `swift format --in-place --recursive Package.swift Sources Tests` to fix the format.
 
 ## Agentic conventions

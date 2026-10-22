@@ -3,11 +3,11 @@ import Foundation
 /// When to send a failed request again.
 public struct RetryPolicy: Sendable {
     /// The total number of attempts, including the first one.
-    public var maxAttempts: Int
-    public var baseDelay: Duration
-    public var maxDelay: Duration
+    public let maxAttempts: Int
+    public let baseDelay: Duration
+    public let maxDelay: Duration
     /// Waits between attempts. Tests replace it so that they do not wait.
-    public var sleep: @Sendable (Duration) async throws -> Void
+    public let sleep: @Sendable (Duration) async throws -> Void
 
     public init(
         maxAttempts: Int = 4,

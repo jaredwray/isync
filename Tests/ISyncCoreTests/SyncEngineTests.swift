@@ -38,11 +38,33 @@ final class SyncEngineTests: XCTestCase {
 
         let first = await engine.run()
         XCTAssertEqual(first.failures.map(\.part), [.messages])
+        XCTAssertEqual(first.messagesUploaded, 2, "the report counts the batch that the API accepted")
         XCTAssertEqual(try store.load().messageCursor, 2)
 
         let second = await engine.run()
         XCTAssertTrue(second.succeeded)
         XCTAssertEqual(api.messageBatches.current, [[1, 2], [3, 4], [5]])
+    }
+
+    func testARunStopsAtTheROWIDFromItsStartWhenNewMessagesKeepArriving() async throws {
+        let source = GrowingMessageSource(initialCount: 3)
+        let api = RecordingAPI()
+        let store = InMemorySyncStateStore()
+        let engine = makeEngine(
+            messages: source,
+            contacts: FakeContactSource([Contact(id: "a")]),
+            api: api,
+            store: store,
+            batchSize: 1
+        )
+
+        let first = await engine.run()
+        let second = await engine.run()
+
+        XCTAssertEqual(api.messageBatches.current.prefix(3), [[1], [2], [3]])
+        XCTAssertEqual(first.messagesUploaded, 3, "rows that arrive during the run wait for the next run")
+        XCTAssertEqual(first.contactsUploaded, 1, "the contact sync runs in the same run")
+        XCTAssertGreaterThan(second.messagesUploaded, 0)
     }
 
     func testACursorAboveTheDatabaseGoesBackToZero() async throws {
@@ -95,6 +117,7 @@ final class SyncEngineTests: XCTestCase {
             let recovered = await engine.run()
 
             XCTAssertEqual(failed.failures.map(\.part), [.contacts], "call \(failingCall)")
+            XCTAssertEqual(failed.contactsUploaded, failingCall == 1 ? 0 : 1, "call \(failingCall)")
             XCTAssertEqual(hashesAfterFailure["b"], initial.hashes["b"], "call \(failingCall): b is not deleted yet")
             if failingCall == 1 {
                 XCTAssertEqual(hashesAfterFailure["a"], initial.hashes["a"], "the changed card is not marked as sent")
@@ -143,6 +166,29 @@ final class SyncEngineTests: XCTestCase {
 
         XCTAssertTrue(second.skipped)
         XCTAssertTrue(firstReport.succeeded)
+    }
+}
+
+/// A Messages database that gets a new row each time the sync reads a batch, up to 50 rows.
+private final class GrowingMessageSource: MessageSource, @unchecked Sendable {
+    private let rows: Locked<[Message]>
+
+    init(initialCount: Int) {
+        rows = Locked((1...initialCount).map { Message(rowID: Int64($0), guid: "guid-\($0)") })
+    }
+
+    func latestRowID() throws -> Int64 {
+        rows.current.last?.rowID ?? 0
+    }
+
+    func messages(after cursor: Int64, limit: Int) throws -> [Message] {
+        rows.withLock { rows in
+            let batch = Array(rows.filter { $0.rowID > cursor }.prefix(limit))
+            if let last = rows.last, last.rowID < 50 {
+                rows.append(Message(rowID: last.rowID + 1, guid: "guid-\(last.rowID + 1)"))
+            }
+            return batch
+        }
     }
 }
 

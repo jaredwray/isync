@@ -36,6 +36,7 @@ final class HTTPSyncAPITests: XCTestCase {
         XCTAssertEqual(request.url?.absoluteString, "https://api.example.com/sync/v1/messages")
         XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer secret-token")
         XCTAssertEqual(request.value(forHTTPHeaderField: "Content-Type"), "application/json")
+        XCTAssertEqual(request.value(forHTTPHeaderField: "User-Agent"), "isync/\(ISyncVersion.current)")
         XCTAssertEqual(request.value(forHTTPHeaderField: "Idempotency-Key")?.count, 16)
 
         let body = try XCTUnwrap(request.httpBody)

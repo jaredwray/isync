@@ -77,7 +77,7 @@ public actor SyncEngine {
 
         if let messageSource {
             do {
-                report.messagesUploaded = try await syncMessages(from: messageSource, state: &state)
+                try await syncMessages(from: messageSource, state: &state, report: &report)
             } catch {
                 report.failures.append(SyncFailure(part: .messages, reason: String(describing: error)))
             }
@@ -85,9 +85,7 @@ public actor SyncEngine {
 
         if let contactSource {
             do {
-                let counts = try await syncContacts(from: contactSource, state: &state)
-                report.contactsUploaded = counts.uploaded
-                report.contactsDeleted = counts.deleted
+                try await syncContacts(from: contactSource, state: &state, report: &report)
             } catch {
                 report.failures.append(SyncFailure(part: .contacts, reason: String(describing: error)))
             }
@@ -101,7 +99,12 @@ public actor SyncEngine {
         return report
     }
 
-    private func syncMessages(from source: any MessageSource, state: inout SyncState) async throws -> Int {
+    /// Adds each accepted batch to `report` at once, so a later failure does not hide the earlier uploads.
+    private func syncMessages(
+        from source: any MessageSource,
+        state: inout SyncState,
+        report: inout SyncReport
+    ) async throws {
         let latest = try source.latestRowID()
         if state.messageCursor > latest {
             // The database is new, for example after a restore. Send all messages
@@ -111,33 +114,33 @@ public actor SyncEngine {
             try stateStore.save(state)
         }
 
-        var uploaded = 0
-        while true {
+        // Stop at the ROWID from the start of the run. Rows that arrive during the run go in the next run,
+        // so a fast stream of new messages cannot keep the run open and block the contact sync.
+        while state.messageCursor < latest {
             try Task.checkCancellation()
             let batch = try source.messages(after: state.messageCursor, limit: options.messageBatchSize)
             guard let last = batch.last else { break }
             try await api.upload(messages: batch, deviceID: state.deviceID)
             state.messageCursor = last.rowID
             try stateStore.save(state)
-            uploaded += batch.count
+            report.messagesUploaded += batch.count
             if batch.count < options.messageBatchSize { break }
         }
         state.lastMessageSync = now()
         try stateStore.save(state)
-        return uploaded
     }
 
     private func syncContacts(
         from source: any ContactSource,
-        state: inout SyncState
-    ) async throws -> (uploaded: Int, deleted: Int) {
+        state: inout SyncState,
+        report: inout SyncReport
+    ) async throws {
         let current = try await source.contacts()
         if current.isEmpty && !state.contactHashes.isEmpty {
             throw ContactSafetyError.emptySource(previousCount: state.contactHashes.count)
         }
         let changes = try ContactDiff.changes(current: current, previousHashes: state.contactHashes)
 
-        var uploaded = 0
         for batch in changes.upserts.chunked(into: options.contactBatchSize) {
             try Task.checkCancellation()
             try await api.upload(contacts: Array(batch), deletedContactIDs: [], deviceID: state.deviceID)
@@ -145,10 +148,9 @@ public actor SyncEngine {
                 state.contactHashes[contact.id] = changes.hashes[contact.id]
             }
             try stateStore.save(state)
-            uploaded += batch.count
+            report.contactsUploaded += batch.count
         }
 
-        var deleted = 0
         for batch in changes.deletedIDs.chunked(into: options.contactBatchSize) {
             try Task.checkCancellation()
             try await api.upload(contacts: [], deletedContactIDs: Array(batch), deviceID: state.deviceID)
@@ -156,12 +158,11 @@ public actor SyncEngine {
                 state.contactHashes[id] = nil
             }
             try stateStore.save(state)
-            deleted += batch.count
+            report.contactsDeleted += batch.count
         }
 
         state.lastContactSync = now()
         try stateStore.save(state)
-        return (uploaded, deleted)
     }
 }
 
