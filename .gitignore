@@ -1,0 +1,19 @@
+# Swift Package Manager
+.build/
+.swiftpm/xcode/package.xcworkspace/
+
+# Xcode
+DerivedData/
+xcuserdata/
+*.xcuserstate
+
+# App bundle output
+/build/
+
+# macOS
+.DS_Store
+
+# AI (keep the shared Claude Code settings and hooks; ignore local state)
+.claude/*
+!.claude/settings.json
+!.claude/hooks/
