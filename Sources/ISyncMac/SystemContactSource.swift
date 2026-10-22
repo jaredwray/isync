@@ -8,7 +8,8 @@ public struct SystemContactSource: ContactSource {
         case notAuthorized
 
         public var description: String {
-            "isync cannot read Contacts. Give it access in System Settings > Privacy & Security > Contacts."
+            "isync needs full access to Contacts. Limited access is not enough, because the sync would delete "
+                + "the cards that it cannot see. Give full access in System Settings > Privacy & Security > Contacts."
         }
     }
 

@@ -38,20 +38,26 @@ func runSync(dryRun: Bool) async -> Int32 {
             print("Contacts: skipped. This process has no Contacts access. Use the iSync app to sync Contacts.")
             configuration.syncContacts = false
         }
-        let token = try ProcessInfo.processInfo.environment["ISYNC_API_TOKEN"] ?? KeychainTokenStore().read()
-        let engine: SyncEngine
+        let report: SyncReport
         if dryRun {
+            // A dry run sends nothing, so it does not read the token from the keychain.
             let saved = try FileSyncStateStore().loadIfPresent() ?? SyncState()
-            engine = try SyncService.makeEngine(
+            let engine = try SyncService.makeEngine(
                 configuration: configuration,
-                token: token,
+                token: nil,
                 api: DryRunAPI(),
                 stateStore: InMemorySyncStateStore(saved)
             )
+            report = await engine.run()
         } else {
-            engine = try SyncService.makeEngine(configuration: configuration, token: token)
+            let token = try ProcessInfo.processInfo.environment["ISYNC_API_TOKEN"] ?? KeychainTokenStore().read()
+            let engine = try SyncService.makeEngine(configuration: configuration, token: token)
+            report = await SyncService.runExclusive(engine)
         }
-        let report = await engine.run()
+        if report.skipped {
+            print("Skipped: a different process, such as the iSync app, runs a sync now.")
+            return 1
+        }
         printReport(report, dryRun: dryRun)
         return report.succeeded ? 0 : 1
     } catch {

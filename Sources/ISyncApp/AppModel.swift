@@ -15,8 +15,11 @@ final class AppModel {
     private(set) var canReadMessages = false
     private(set) var canReadContacts = false
     private(set) var launchesAtLogin = false
+    private(set) var loginItemNeedsApproval = false
     /// The last error from Settings, such as an invalid URL.
     var settingsError: String?
+    /// A note about the last save, such as a removed token.
+    private(set) var settingsNotice: String?
 
     private let configurationStore = ConfigurationStore()
     private let tokenStore = KeychainTokenStore()
@@ -60,7 +63,10 @@ final class AppModel {
         }
         do {
             let engine = try SyncService.makeEngine(configuration: configuration, token: token)
-            lastReport = await engine.run()
+            let report = await SyncService.runExclusive(engine)
+            // A skipped run means that a different process, such as isync-cli, holds the sync lock.
+            if report.skipped { return false }
+            lastReport = report
         } catch {
             lastReport = Self.failedReport(part: .state, reason: String(describing: error))
         }
@@ -88,32 +94,68 @@ final class AppModel {
 
     // MARK: - Settings
 
-    /// Returns false and sets `settingsError` when the configuration is not valid.
+    /// Saves the settings and an optional new token. Returns false and sets `settingsError` on failure.
+    ///
+    /// The order keeps private data safe:
+    /// 1. Validate the configuration.
+    /// 2. If the server origin changes, remove the old token, so that it does not go to the new server.
+    /// 3. If the URL changes, reset the sync progress, so that the new server gets all data.
+    /// 4. Save the configuration, then the new token.
     @discardableResult
-    func save(_ newConfiguration: SyncConfiguration) -> Bool {
+    func applySettings(_ newConfiguration: SyncConfiguration, token rawToken: String) -> Bool {
+        let token = rawToken.trimmingCharacters(in: .whitespacesAndNewlines)
+        let previousURL = configuration.apiBaseURL
+        let urlChanged = previousURL != nil && newConfiguration.apiBaseURL != previousURL
+        let originChanged = urlChanged && Self.origin(of: newConfiguration.apiBaseURL) != Self.origin(of: previousURL)
+        var notes: [String] = []
         do {
+            try newConfiguration.validate()
+            if urlChanged && isSyncing {
+                settingsError = "A sync is in progress. Save the new URL after it finishes."
+                return false
+            }
+            if originChanged && token.isEmpty && tokenStore.exists() {
+                try tokenStore.delete()
+                notes.append(
+                    "The server changed, so the app removed the old token. Enter the token for the new server.")
+            }
+            if urlChanged {
+                try Self.resetSyncProgress()
+                notes.append("The URL changed, so the next sync sends all data to the new URL.")
+            }
             try configurationStore.save(newConfiguration)
             let intervalChanged = newConfiguration.syncIntervalMinutes != configuration.syncIntervalMinutes
             configuration = newConfiguration
-            settingsError = nil
             if intervalChanged {
                 scheduler?.start(intervalMinutes: newConfiguration.syncIntervalMinutes)
             }
+            if !token.isEmpty {
+                try tokenStore.save(token)
+            }
+            settingsError = nil
+            settingsNotice = notes.isEmpty ? nil : notes.joined(separator: " ")
+            refreshStatus()
             return true
         } catch {
             settingsError = String(describing: error)
+            refreshStatus()
             return false
         }
     }
 
-    func saveToken(_ token: String) {
-        do {
-            try tokenStore.save(token.trimmingCharacters(in: .whitespacesAndNewlines))
-            settingsError = nil
-        } catch {
-            settingsError = String(describing: error)
+    /// "scheme://host:port" in lowercase, or nil.
+    private static func origin(of url: URL?) -> String? {
+        guard let url, let scheme = url.scheme?.lowercased(), let host = url.host(percentEncoded: false) else {
+            return nil
         }
-        refreshStatus()
+        return "\(scheme)://\(host.lowercased()):\(url.port.map(String.init) ?? "")"
+    }
+
+    /// Keeps the device ID and clears the message cursor and the contact hashes.
+    private static func resetSyncProgress() throws {
+        let store = FileSyncStateStore()
+        guard let state = try store.loadIfPresent() else { return }
+        try store.save(SyncState(deviceID: state.deviceID))
     }
 
     func setLaunchesAtLogin(_ enabled: Bool) {
@@ -143,6 +185,11 @@ final class AppModel {
         canReadMessages = SyncService.canReadMessages()
         canReadContacts = SystemContactSource.isAuthorized
         launchesAtLogin = LoginItem.isEnabled
+        loginItemNeedsApproval = LoginItem.needsApproval
+    }
+
+    func openLoginItemsSettings() {
+        LoginItem.openSettings()
     }
 
     enum PrivacyPane {

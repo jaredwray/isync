@@ -71,6 +71,9 @@ Set `ISYNC_API_TOKEN` to use a token that is not in the keychain.
 - The API URL must use HTTPS. Plain HTTP is permitted only for `localhost`.
 - The client does not follow redirects, keeps no HTTP cache or cookies, and keeps the API token in
   the keychain.
+- When you change the API server, the app removes the old token, so it does not go to the new server.
+  When you change the API URL, the next sync sends all data again.
+- The app and `isync-cli` do not sync at the same time. A lock file stops a second sync.
 - The settings and the sync state are in `~/Library/Application Support/isync/`. Only your user can
   read them. They hold no message text.
 - The app log holds counts and errors only. It does not hold message text or contact details.

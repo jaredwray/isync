@@ -40,6 +40,31 @@ public enum SyncService {
         )
     }
 
+    /// The lock file that stops two processes, such as the app and isync-cli, from a sync at the same time.
+    /// Both processes write the same state file.
+    public static var lockURL: URL { AppPaths.directory.appending(path: "sync.lock") }
+
+    /// Runs the engine while this process holds the sync lock. If a different process holds
+    /// the lock, the result is a skipped report.
+    public static func runExclusive(_ engine: SyncEngine, lockURL: URL = SyncService.lockURL) async -> SyncReport {
+        let lock: FileLock
+        do {
+            guard let acquired = try FileLock(url: lockURL) else {
+                var report = SyncReport(startedAt: Date())
+                report.skipped = true
+                return report
+            }
+            lock = acquired
+        } catch {
+            var report = SyncReport(startedAt: Date())
+            report.failures = [SyncFailure(part: .state, reason: "Cannot open the sync lock. \(error)")]
+            return report
+        }
+        let report = await engine.run()
+        lock.unlock()
+        return report
+    }
+
     /// False only when macOS blocks access to chat.db, which means that the app needs Full Disk
     /// Access. A Mac with no chat.db is not a permission problem.
     public static func canReadMessages() -> Bool {

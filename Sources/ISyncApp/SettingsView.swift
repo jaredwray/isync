@@ -43,6 +43,14 @@ struct SettingsView: View {
                         model.setLaunchesAtLogin(enabled)
                         launchesAtLogin = model.launchesAtLogin
                     }
+                if model.loginItemNeedsApproval {
+                    HStack {
+                        Text("Approve iSync in System Settings > General > Login Items.")
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        Button("Open…") { model.openLoginItemsSettings() }
+                    }
+                }
             }
 
             Section("Permissions") {
@@ -67,6 +75,10 @@ struct SettingsView: View {
             if let error = model.settingsError {
                 Section {
                     Text(error).foregroundStyle(.red)
+                }
+            } else if let notice = model.settingsNotice {
+                Section {
+                    Text(notice).foregroundStyle(.secondary)
                 }
             }
         }
@@ -104,12 +116,9 @@ struct SettingsView: View {
         configuration.syncIntervalMinutes = interval
         configuration.syncMessages = syncMessages
         configuration.syncContacts = syncContacts
-        // Keep the token field and the error when the configuration is not valid.
-        guard model.save(configuration) else { return }
-        if !token.isEmpty {
-            model.saveToken(token)
-            token = ""
-        }
+        // Keep the token field and the error when the save fails.
+        guard model.applySettings(configuration, token: token) else { return }
+        token = ""
     }
 
     private static func label(minutes: Int) -> String {
