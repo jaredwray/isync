@@ -65,6 +65,13 @@ public enum SyncService {
         return report
     }
 
+    /// Runs `body` while this process holds the sync lock. Returns nil if a different holder has the lock.
+    public static func withSyncLock<T>(lockURL: URL = SyncService.lockURL, _ body: () throws -> T) throws -> T? {
+        guard let lock = try FileLock(url: lockURL) else { return nil }
+        defer { lock.unlock() }
+        return try body()
+    }
+
     /// False only when macOS blocks access to chat.db, which means that the app needs Full Disk
     /// Access. A Mac with no chat.db is not a permission problem.
     public static func canReadMessages() -> Bool {

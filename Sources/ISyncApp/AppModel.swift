@@ -98,8 +98,9 @@ final class AppModel {
     ///
     /// The order keeps private data safe:
     /// 1. Validate the configuration.
-    /// 2. If the server origin changes, remove the old token, so that it does not go to the new server.
-    /// 3. If the URL changes, reset the sync progress, so that the new server gets all data.
+    /// 2. If the server origin changes, remove the old token first, so that it cannot go to the new
+    ///    server, also if the save of a new token fails later.
+    /// 3. If the URL changes, reset the sync progress under the sync lock, so that the new server gets all data.
     /// 4. Save the configuration, then the new token.
     @discardableResult
     func applySettings(_ newConfiguration: SyncConfiguration, token rawToken: String) -> Bool {
@@ -114,13 +115,19 @@ final class AppModel {
                 settingsError = "A sync is in progress. Save the new URL after it finishes."
                 return false
             }
-            if originChanged && token.isEmpty && tokenStore.exists() {
+            if originChanged && tokenStore.exists() {
                 try tokenStore.delete()
-                notes.append(
-                    "The server changed, so the app removed the old token. Enter the token for the new server.")
+                if token.isEmpty {
+                    notes.append(
+                        "The server changed, so the app removed the old token. Enter the token for the new server.")
+                }
             }
             if urlChanged {
-                try Self.resetSyncProgress()
+                // isync-cli can run a sync at the same time. The lock stops it from writing old progress back.
+                guard try SyncService.withSyncLock({ try Self.resetSyncProgress() }) != nil else {
+                    settingsError = "A sync is in progress. Save the new URL after it finishes."
+                    return false
+                }
                 notes.append("The URL changed, so the next sync sends all data to the new URL.")
             }
             try configurationStore.save(newConfiguration)
@@ -152,7 +159,7 @@ final class AppModel {
     }
 
     /// Keeps the device ID and clears the message cursor and the contact hashes.
-    private static func resetSyncProgress() throws {
+    nonisolated private static func resetSyncProgress() throws {
         let store = FileSyncStateStore()
         guard let state = try store.loadIfPresent() else { return }
         try store.save(SyncState(deviceID: state.deviceID))
