@@ -25,3 +25,18 @@ let package = Package(
         ),
     ]
 )
+
+// The app, its macOS adapters, and the command-line tool use Apple frameworks
+// (Contacts, Security, ServiceManagement, SwiftUI). Linux builds the core only.
+#if os(macOS)
+    package.products += [
+        .executable(name: "ISyncApp", targets: ["ISyncApp"]),
+        .executable(name: "isync-cli", targets: ["isync-cli"]),
+    ]
+    package.targets += [
+        .target(name: "ISyncMac", dependencies: ["ISyncCore"]),
+        .executableTarget(name: "ISyncApp", dependencies: ["ISyncCore", "ISyncMac"]),
+        .executableTarget(name: "isync-cli", dependencies: ["ISyncCore", "ISyncMac"]),
+        .testTarget(name: "ISyncMacTests", dependencies: ["ISyncCore", "ISyncMac"]),
+    ]
+#endif

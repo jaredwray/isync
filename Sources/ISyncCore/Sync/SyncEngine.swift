@@ -124,6 +124,7 @@ public actor SyncEngine {
             state.messageCursor = last.rowID
             try stateStore.save(state)
             report.messagesUploaded += batch.count
+            report.messagesWithRawBody += batch.filter { $0.attributedBody != nil }.count
             if batch.count < options.messageBatchSize { break }
         }
         state.lastMessageSync = now()

@@ -22,11 +22,14 @@ final class SyncEngineTests: XCTestCase {
     func testUploadsMessagesInBatchesAndSavesTheCursor() async throws {
         let api = RecordingAPI()
         let store = InMemorySyncStateStore()
+        let source = FakeMessageSource(count: 5)
+        source.rows.withLock { $0[2].attributedBody = Data([0x01]) }
 
-        let report = await makeEngine(messages: FakeMessageSource(count: 5), api: api, store: store).run()
+        let report = await makeEngine(messages: source, api: api, store: store).run()
 
         XCTAssertTrue(report.succeeded)
         XCTAssertEqual(report.messagesUploaded, 5)
+        XCTAssertEqual(report.messagesWithRawBody, 1, "the app status shows messages that the decoder cannot read")
         XCTAssertEqual(api.messageBatches.current, [[1, 2], [3, 4], [5]])
         XCTAssertEqual(try store.load().messageCursor, 5)
     }
