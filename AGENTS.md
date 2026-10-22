@@ -13,6 +13,19 @@ API on a schedule.
 - The app reads private data. Do not write message text, contact details, or API tokens to logs,
   to test fixtures, or to issues. Make all test data synthetic.
 
+Run these checks before you push. CI runs the same checks on Linux and on macOS.
+
+```sh
+swift format lint --strict --recursive Package.swift Sources Tests
+swift build --build-tests --disable-automatic-resolution -Xswiftc -warnings-as-errors
+swift test --skip-build
+```
+
+- `Sources/ISyncCore` must build and pass its tests on Linux. Put each Apple-only import, such as
+  `os` or `SQLite3`, in an `#if canImport(...)` block, and give the Linux path in the `#else` block.
+  Put code that needs an Apple-only framework with no Linux path in `Sources/ISyncMac`.
+- Use `swift format --in-place --recursive Package.swift Sources Tests` to fix the format.
+
 ## Agentic conventions
 - Issue tracker: GitHub Issues
 - Labels: bug, enhancement, documentation, question
