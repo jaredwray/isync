@@ -22,5 +22,5 @@ We will acknowledge receipt on the issue and by email, fix it in public, and cre
 
 This repository follows the applicable items of the [defense-in-depth](https://github.com/jaredwray/agentic/blob/main/skills/security/defense-in-depth-nodejs/SKILL.md) hardening checklist; progress is tracked in [DEFENSE_IN_DEPTH.md](./DEFENSE_IN_DEPTH.md). Measures currently in place:
 
-- CI runs with read-only permissions; every action is pinned to a full commit SHA; checkouts do not keep credentials; workflows are security-linted with zizmor on every PR.
-- The Swift package has no third-party dependencies. Socket reviews every dependency change; Aikido scans every build.
+- CI jobs get read-only tokens, except the zizmor job, which can also upload results to code scanning; every action is pinned to a full commit SHA; checkouts do not keep credentials; workflows are security-linted with zizmor on every PR.
+- The repository has no third-party dependencies. Socket reviews every dependency change; Aikido scans every build.

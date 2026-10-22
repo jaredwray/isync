@@ -32,6 +32,8 @@ jobs:
       - name: Run zizmor
         uses: zizmorcore/zizmor-action@cc914d7f3750a2d13d75c7f184a1060aa0e9d482 # v0.6.4
         with:
+          # The action maps each version to an image digest. 1.30.1 is the newest release that is 7 days old.
+          version: "1.30.1"
           # Fork PRs cannot upload SARIF (read-only token). Lint with annotations instead.
           advanced-security: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
           annotations: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository }}
