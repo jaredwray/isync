@@ -1,13 +1,13 @@
 # Swift Package Manager
 .build/
-.swiftpm/
+.swiftpm/xcode/package.xcworkspace/
 
 # Xcode
 DerivedData/
 xcuserdata/
 *.xcuserstate
 
-# App bundle output from scripts/build-app.sh
+# App bundle output
 /build/
 
 # macOS

@@ -21,7 +21,7 @@ API on a schedule.
 - Default branch: main
 - Package manager: Swift Package Manager
 - Code review: the agentic `code-review` skill on the Fable model (`claude-fable-5-1`), on each pull request before merge
-- Merge: an agent can merge a pull request when all checks pass and each review finding has a reply
+- Merge: an agent can merge a pull request only when CI passes on the last commit, the Fable review has no open blocking or major finding, and each finding has a reply. A pull request that changes code or workflows must run at least one CI check.
 
 ## Simplified Technical English
 
