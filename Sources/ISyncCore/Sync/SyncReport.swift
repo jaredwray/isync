@@ -5,6 +5,9 @@ public struct SyncReport: Equatable, Sendable {
     public var startedAt: Date
     public var finishedAt: Date
     public var messagesUploaded = 0
+    /// Uploaded messages whose text the decoder could not read. They carry the raw body.
+    /// A value above 0 after a macOS update can mean that the body format changed.
+    public var messagesWithRawBody = 0
     public var contactsUploaded = 0
     public var contactsDeleted = 0
     public var failures: [SyncFailure] = []

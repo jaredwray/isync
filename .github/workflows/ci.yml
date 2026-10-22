@@ -52,3 +52,9 @@ jobs:
         run: swift build --build-tests --disable-automatic-resolution -Xswiftc -warnings-as-errors
       - name: Test
         run: swift test --skip-build
+      - name: Build the app bundle
+        run: scripts/build-app.sh
+      - name: Check the CLI
+        run: |
+          swift run --disable-automatic-resolution isync-cli help
+          swift run --disable-automatic-resolution isync-cli status

@@ -24,7 +24,7 @@ this file adapts it:
 ## 3. Dependencies (Swift Package Manager)
 - [x] No third-party dependencies in the repository; a new dependency needs an approved ADR in `docs/adr/` — verified 2026-10-22
 - [ ] A new dependency is pinned with `exact:` to a release at least 7 days old, and `Package.resolved` is committed
-- [ ] CI builds with `swift build --disable-automatic-resolution`, so CI fails if the resolved versions would change (PR #3 pending)
+- [x] CI builds with `swift build --disable-automatic-resolution`, so CI fails if the resolved versions would change — PR #3
 - [x] No `.github/dependabot.yml`; other dependency-update tools (if any) open PRs only — never auto-merge — verified 2026-10-22
 
 ## 4. GitHub Actions
