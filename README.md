@@ -61,8 +61,9 @@ swift run isync-cli sync --dry-run   # Reads the data and prints counts. Sends a
 swift run isync-cli sync
 ```
 
-The terminal app needs Full Disk Access to read Messages. The first `sync` asks for access to
-Contacts for the terminal app. Set `ISYNC_API_TOKEN` to use a token that is not in the keychain.
+The terminal app needs Full Disk Access to read Messages. The command-line tool cannot ask for
+access to Contacts, so it skips Contacts when it has no access. Use the iSync app to sync Contacts.
+Set `ISYNC_API_TOKEN` to use a token that is not in the keychain.
 
 ## Privacy and security
 

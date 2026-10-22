@@ -116,7 +116,7 @@ struct SettingsView: View {
         switch minutes {
         case 60: "Hour"
         case 1_440: "Day"
-        case 61...: "\(minutes / 60) hours"
+        case let value where value > 60 && value % 60 == 0: "\(value / 60) hours"
         default: "\(minutes) minutes"
         }
     }

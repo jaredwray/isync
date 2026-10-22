@@ -32,10 +32,11 @@ func printReport(_ report: SyncReport, dryRun: Bool) {
 
 func runSync(dryRun: Bool) async -> Int32 {
     do {
-        let configuration = try ConfigurationStore().load()
+        var configuration = try ConfigurationStore().load()
         if configuration.syncContacts && !SystemContactSource.isAuthorized {
-            // macOS asks the person once. The terminal app then gets the Contacts permission.
-            _ = try? await SystemContactSource.requestAccess()
+            // A command-line tool has no Info.plist, so it cannot ask for Contacts access.
+            print("Contacts: skipped. This process has no Contacts access. Use the iSync app to sync Contacts.")
+            configuration.syncContacts = false
         }
         let token = try ProcessInfo.processInfo.environment["ISYNC_API_TOKEN"] ?? KeychainTokenStore().read()
         let engine: SyncEngine
